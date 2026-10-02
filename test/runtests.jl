@@ -43,3 +43,4 @@ using Test
 end
 
 include("mn_tests.jl")
+include("dm_tests.jl")
