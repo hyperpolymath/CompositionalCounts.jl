@@ -14,9 +14,15 @@ module CompositionalCounts
 export CompositionalError, InvalidCounts, UnidentifiableTaxon, RankDeficientDesign,
        InvalidReference, NonConvergence, BackendUnavailable,
        UnidentifiableDispersion, BoundaryEstimate, MultipleOptima, SingularInformation,
-       validate_counts, validate_design, prevalence, select_reference, validate_reference
+       validate_counts, validate_design, prevalence, select_reference, validate_reference,
+       MN, DM, CompositionalModel, CompositionalFit, fit, bh_adjust
 
 include("Errors.jl")
 include("Identify.jl")
+include("LogSumExp.jl")
+include("Model.jl")
+include("Inference.jl")
+include("Provenance.jl")
+include("Backends/JuliaMN.jl")
 
 end # module
