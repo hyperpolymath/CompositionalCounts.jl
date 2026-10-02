@@ -37,6 +37,11 @@ jobs:
       - uses: julia-actions/cache@a45e8fa8be21c18a06b7177052533149e61e9b38 # v3.1.0
       - name: MGLM is the pinned version
         run: Rscript -e 'stopifnot(packageVersion("MGLM") == renv::lockfile_read()$Packages$MGLM$Version)'
+      - name: Diagnose embedded R (temporary)
+        continue-on-error: true
+        run: |
+          julia --project=test/r -e 'using Pkg; Pkg.instantiate(); println("stage1 julia ", VERSION); flush(stdout); using RCall; println("stage2 RCall loaded, R_HOME=", RCall.Rhome); flush(stdout); println(rcopy(R"R.version.string")); println(rcopy(R"paste(.libPaths(), collapse=\" \")")); println(rcopy(R"as.character(packageVersion(\"MGLM\"))"))' && echo "julia rc=0" || echo "julia rc=$?"
+          cat ~/.julia/scratchspaces/44cfe95a-1eb2-52ea-b672-e2afdf69b78f/*/build.log || true
       - name: Julia MN vs MGLM
         run: |
           julia --project=test/r -e 'using Pkg; Pkg.instantiate()'
