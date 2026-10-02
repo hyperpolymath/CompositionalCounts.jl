@@ -45,9 +45,12 @@ jobs:
         continue-on-error: true
         run: |
           set +e
-          julia --project=test/r -e 'using Pkg; Pkg.instantiate()'; echo "inst rc=$?"
-          julia --project=test/r -e 'println("a"); using CompositionalCounts; println("b"); using RCall; println("c"); println(rcopy(R"R.version.string")); println("d"); println(rcopy(R"requireNamespace(\"MGLM\")")); println("e")'; echo "load rc=$?"
-          julia --project=test/r -e 'Base.retry_load_extensions(); using CompositionalCounts, RCall; println(Base.get_extension(CompositionalCounts, :CompositionalCountsRCallExt))' 2>&1 | tail -40; echo "ext rc=${PIPESTATUS[0]}"
+          julia --project=test/r -e 'using Pkg; Pkg.instantiate()' >/dev/null 2>&1
+          P=$GITHUB_WORKSPACE/test/r
+          echo "== v1 plain RCall outside repo"; (cd /tmp && julia --project=$P -e 'using RCall; println(rcopy(R"R.version.string"))'); echo "v1 rc=$?"
+          echo "== v2 in repo, .Rprofile bypassed"; R_PROFILE_USER=/dev/null julia --project=test/r -e 'using RCall; println(rcopy(R".libPaths()"))'; echo "v2 rc=$?"
+          echo "== v3 in repo, debug"; JULIA_DEBUG=RCall julia --project=test/r -e 'using RCall; println("ok")' 2>&1 | tail -30; echo "v3 rc=${PIPESTATUS[0]}"
+          echo "== v4 Rscript in repo"; Rscript -e 'cat(.libPaths(), sep="\n"); cat(R.home(), "\n")'; echo "v4 rc=$?"
       - name: Julia MN vs MGLM
         # Serial precompile on first `using`, so an extension failure prints its error.
         env:
