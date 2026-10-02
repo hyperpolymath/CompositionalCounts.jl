@@ -47,10 +47,9 @@ jobs:
           set +e
           julia --project=test/r -e 'using Pkg; Pkg.instantiate()' >/dev/null 2>&1
           P=$GITHUB_WORKSPACE/test/r
-          echo "== v1 plain RCall outside repo"; (cd /tmp && julia --project=$P -e 'using RCall; println(rcopy(R"R.version.string"))'); echo "v1 rc=$?"
-          echo "== v2 in repo, .Rprofile bypassed"; R_PROFILE_USER=/dev/null julia --project=test/r -e 'using RCall; println(rcopy(R".libPaths()"))'; echo "v2 rc=$?"
-          echo "== v3 in repo, debug"; JULIA_DEBUG=RCall julia --project=test/r -e 'using RCall; println("ok")' 2>&1 | tail -30; echo "v3 rc=${PIPESTATUS[0]}"
-          echo "== v4 Rscript in repo"; Rscript -e 'cat(.libPaths(), sep="\n"); cat(R.home(), "\n")'; echo "v4 rc=$?"
+          echo "== profiles"; ls -la ~/.Rprofile .Rprofile 2>&1; cat ~/.Rprofile 2>&1 | head -20; echo "-- site"; cat /opt/R/4.5.0/lib/R/etc/Rprofile.site 2>&1 | head -20; echo "-- Renviron.site"; cat /opt/R/4.5.0/lib/R/etc/Renviron.site 2>&1 | head
+          echo "== v5 base pkg load error"; R_PROFILE_USER=/dev/null julia --project=test/r -e 'using RCall; println(rcopy(R"tryCatch({library(utils); \"utils ok\"}, error=function(e) conditionMessage(e))")); println(rcopy(R"tryCatch({dyn.load(file.path(R.home(\"library\"),\"stats\",\"libs\",\"stats.so\")); \"stats.so ok\"}, error=function(e) conditionMessage(e))")); println(rcopy(R"Sys.getenv(c(\"R_HOME\",\"R_LIBS\",\"R_LIBS_SITE\",\"R_DEFAULT_PACKAGES\"))"))' 2>&1 | grep -v "^\s*@"; echo "v5 rc=${PIPESTATUS[0]}"
+          echo "== ldd libR"; ldd /opt/R/4.5.0/lib/R/lib/libR.so | head -20
       - name: Julia MN vs MGLM
         # Serial precompile on first `using`, so an extension failure prints its error.
         env:
