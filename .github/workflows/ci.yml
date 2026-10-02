@@ -42,6 +42,9 @@ jobs:
       - name: Conda root env dir for RCall
         run: mkdir -p ~/.julia/conda/3/x86_64
       - name: Julia MN vs MGLM
+        # Serial precompile on first `using`, so an extension failure prints its error.
+        env:
+          JULIA_PKG_PRECOMPILE_AUTO: 0
         run: |
           julia --project=test/r -e 'using Pkg; Pkg.instantiate()'
           julia --project=test/r test/r/runtests.jl
