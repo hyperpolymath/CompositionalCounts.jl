@@ -33,10 +33,14 @@ jobs:
       - uses: r-lib/actions/setup-renv@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2.14.0
       - uses: julia-actions/setup-julia@fa02766e078afaaf09b14210362cee14137e6a32 # v3.0.2
         with:
-          version: '1'
+          version: '1.12'   # test/r/Manifest.toml was resolved on 1.12
       - uses: julia-actions/cache@a45e8fa8be21c18a06b7177052533149e61e9b38 # v3.1.0
       - name: MGLM is the pinned version
         run: Rscript -e 'stopifnot(packageVersion("MGLM") == renv::lockfile_read()$Packages$MGLM$Version)'
+      # RCall depends on Conda.jl, whose module init refuses a missing root env dir
+      # even when RCall uses the system R installed above; create the empty dir.
+      - name: Conda root env dir for RCall
+        run: mkdir -p ~/.julia/conda/3/x86_64
       - name: Julia MN vs MGLM
         run: |
           julia --project=test/r -e 'using Pkg; Pkg.instantiate()'
