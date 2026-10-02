@@ -5,9 +5,18 @@ version = "0.1.0-DEV"
 
 [deps]
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
+
+[weakdeps]
+RCall = "6f49c342-dc21-5d91-9882-a32aef131414"
+
+[extensions]
+CompositionalCountsRCallExt = "RCall"
 
 [compat]
 LinearAlgebra = "1"
+RCall = "0.14"
+SpecialFunctions = "2"
 julia = "1.10"
 
 [extras]
