@@ -41,6 +41,10 @@ jobs:
       # even when RCall uses the system R installed above; create the empty dir.
       - name: Conda root env dir for RCall
         run: mkdir -p ~/.julia/conda/3/x86_64
+      # Embedded R has no launcher script to set LD_LIBRARY_PATH, and this R build has
+      # no rpath, so base packages' .so files cannot find libR.so and R quits at startup.
+      - name: libR on the loader path for embedded R
+        run: echo "LD_LIBRARY_PATH=$(R RHOME)/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
       - name: Julia MN vs MGLM
         run: |
           julia --project=test/r -e 'using Pkg; Pkg.instantiate()'
