@@ -41,19 +41,11 @@ jobs:
       # even when RCall uses the system R installed above; create the empty dir.
       - name: Conda root env dir for RCall
         run: mkdir -p ~/.julia/conda/3/x86_64
-      - name: Locate embedded-R exit (temporary)
-        continue-on-error: true
-        run: |
-          set +e
-          julia --project=test/r -e 'using Pkg; Pkg.instantiate()' >/dev/null 2>&1
-          P=$GITHUB_WORKSPACE/test/r
-          echo "== profiles"; ls -la ~/.Rprofile .Rprofile 2>&1; cat ~/.Rprofile 2>&1 | head -20; echo "-- site"; cat /opt/R/4.5.0/lib/R/etc/Rprofile.site 2>&1 | head -20; echo "-- Renviron.site"; cat /opt/R/4.5.0/lib/R/etc/Renviron.site 2>&1 | head
-          echo "== v5 base pkg load error"; R_PROFILE_USER=/dev/null julia --project=test/r -e 'using RCall; println(rcopy(R"tryCatch({library(utils); \"utils ok\"}, error=function(e) conditionMessage(e))")); println(rcopy(R"tryCatch({dyn.load(file.path(R.home(\"library\"),\"stats\",\"libs\",\"stats.so\")); \"stats.so ok\"}, error=function(e) conditionMessage(e))")); println(rcopy(R"Sys.getenv(c(\"R_HOME\",\"R_LIBS\",\"R_LIBS_SITE\",\"R_DEFAULT_PACKAGES\"))"))' 2>&1 | grep -v "^\s*@"; echo "v5 rc=${PIPESTATUS[0]}"
-          echo "== ldd libR"; ldd /opt/R/4.5.0/lib/R/lib/libR.so | head -20
+      # Embedded R has no launcher script to set LD_LIBRARY_PATH, and this R build has
+      # no rpath, so base packages' .so files cannot find libR.so and R quits at startup.
+      - name: libR on the loader path for embedded R
+        run: echo "LD_LIBRARY_PATH=$(R RHOME)/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
       - name: Julia MN vs MGLM
-        # Serial precompile on first `using`, so an extension failure prints its error.
-        env:
-          JULIA_PKG_PRECOMPILE_AUTO: 0
         run: |
           julia --project=test/r -e 'using Pkg; Pkg.instantiate()'
           julia --project=test/r test/r/runtests.jl
