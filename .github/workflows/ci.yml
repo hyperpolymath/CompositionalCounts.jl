@@ -41,6 +41,13 @@ jobs:
       # even when RCall uses the system R installed above; create the empty dir.
       - name: Conda root env dir for RCall
         run: mkdir -p ~/.julia/conda/3/x86_64
+      - name: Locate embedded-R exit (temporary)
+        continue-on-error: true
+        run: |
+          set +e
+          julia --project=test/r -e 'using Pkg; Pkg.instantiate()'; echo "inst rc=$?"
+          julia --project=test/r -e 'println("a"); using CompositionalCounts; println("b"); using RCall; println("c"); println(rcopy(R"R.version.string")); println("d"); println(rcopy(R"requireNamespace(\"MGLM\")")); println("e")'; echo "load rc=$?"
+          julia --project=test/r -e 'Base.retry_load_extensions(); using CompositionalCounts, RCall; println(Base.get_extension(CompositionalCounts, :CompositionalCountsRCallExt))' 2>&1 | tail -40; echo "ext rc=${PIPESTATUS[0]}"
       - name: Julia MN vs MGLM
         # Serial precompile on first `using`, so an extension failure prints its error.
         env:
