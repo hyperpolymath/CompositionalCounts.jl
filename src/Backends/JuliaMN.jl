@@ -79,13 +79,35 @@ using LinearAlgebra: Diagonal
 
 const MN_MAXIT = 200
 const MN_DIVERGE = 50.0
-const NEWTON_TOL = 1e-12
+const NEWTON_TOL = 1e-12          # relative to 1 + |ll|
+const MN_MIN_EXPECTED = 1e-6     # divergence convention, calibrated in test/mn_tests.jl
+
+"""
+    check_divergence(B, Y, X)
+
+Throw [`NonConvergence`](@ref) when any fitted expected count Nᵢp̂ᵢⱼ is below
+$(MN_MIN_EXPECTED): the signature of coefficients running to ±∞ (e.g. quasi-complete
+separation), where the reported "optimum" is only where the optimiser stopped.
+"""
+function check_divergence(B::AbstractMatrix, Y::AbstractMatrix, X::AbstractMatrix)
+    η = X * B
+    p = zeros(size(B, 2))
+    for i in axes(Y, 1)
+        softmax!(p, @view η[i, :])
+        m = sum(@view Y[i, :]) * minimum(p)
+        m < MN_MIN_EXPECTED && throw(NonConvergence(
+            "MN coefficients diverge: fitted expected count $m < $(MN_MIN_EXPECTED) in sample $i " *
+            "(quasi-complete separation by a covariate?); the MLE does not exist"))
+    end
+    return nothing
+end
 
 """
     mn_newton(Y, X, ref) -> (θ, B, ll, info, report)
 
 Damped Newton ascent on the concave MN log-likelihood from θ = 0, stopping when
-the Newton decrement gᵀI⁻¹g/2 ≤ $(NEWTON_TOL). Throws [`NonConvergence`](@ref) on
+the Newton decrement gᵀI⁻¹g/2 ≤ $(NEWTON_TOL)·(1 + |ll|), then checking
+[`check_divergence`](@ref). Throws [`NonConvergence`](@ref) on
 iteration cap, failed line search or coefficient divergence (|β| > $(MN_DIVERGE)),
 and [`SingularInformation`](@ref) when the information is not positive definite.
 """
@@ -101,7 +123,8 @@ function mn_newton(Y::AbstractMatrix, X::AbstractMatrix, ref::Int)
         isposdef(S) || throw(SingularInformation("MN information not positive definite at iteration $it"))
         Δ = cholesky(S) \ g
         dec = dot(g, Δ) / 2
-        if dec <= NEWTON_TOL
+        if dec <= NEWTON_TOL * (1 + abs(ll))
+            check_divergence(B, Y, X)
             report = (converged=true, iterations=it - 1, newton_decrement=dec,
                       max_abs_gradient=maximum(abs, g), solver="damped Newton")
             return θ, B, ll, Imat, report
@@ -111,7 +134,7 @@ function mn_newton(Y::AbstractMatrix, X::AbstractMatrix, ref::Int)
         for _ in 1:60
             θn = θ .+ t .* Δ
             lln = mn_loglik(mn_coef(θn, p, J, free), Y, X)
-            if isfinite(lln) && lln >= ll + 1e-4 * t * dot(g, Δ)
+            if isfinite(lln) && lln >= ll + 1e-4 * t * dot(g, Δ) - 4eps() * abs(ll)
                 θ = θn
                 accepted = true
                 break
@@ -131,10 +154,12 @@ const FISTA_TOL = 1e-9
 """
     mn_l1(Y, X, ref, λ, pen) -> (θ, B, ll, report)
 
-L1-penalised MN by FISTA with backtracking: maximise ll(θ) − λ Σ |θₖ| over the
-coordinates flagged in `pen`. Throws [`NonConvergence`](@ref) at the iteration cap.
+L1-penalised MN by FISTA with backtracking and adaptive restart: maximise
+ll(θ) − λ Σ |θₖ| over the coordinates flagged in `pen`. Stops when the gradient
+mapping (a first-order optimality residual) is ≤ $(FISTA_TOL)·(1 + ΣY).
+Throws [`NonConvergence`](@ref) at the iteration cap.
 """
-function mn_l1(Y::AbstractMatrix, X::AbstractMatrix, ref::Int, λ::Float64, pen::Vector{Bool})
+function mn_l1(Y::AbstractMatrix, X::AbstractMatrix, ref::Int, λ::Float64, pen::AbstractVector{Bool})
     J = size(Y, 2)
     p = size(X, 2)
     free = [j for j in 1:J if j != ref]
@@ -142,6 +167,7 @@ function mn_l1(Y::AbstractMatrix, X::AbstractMatrix, ref::Int, λ::Float64, pen:
     grad(θ) = -mn_derivs(mn_coef(θ, p, J, free), Y, X, free; info=false)[2]
     prox(v, s) = [pen[k] ? sign(v[k]) * max(abs(v[k]) - s * λ, 0.0) : v[k] for k in eachindex(v)]
     θ = zeros(p * length(free))
+    Ntot = sum(Y)
     z = copy(θ)
     tk = 1.0
     Lc = 1.0
@@ -156,15 +182,20 @@ function mn_l1(Y::AbstractMatrix, X::AbstractMatrix, ref::Int, λ::Float64, pen:
             Lc *= 2
             Lc > 1e20 && throw(NonConvergence("L1-MN backtracking failed"))
         end
-        tn = (1 + sqrt(1 + 4tk^2)) / 2
-        step = maximum(abs, θn .- θ)
-        z = θn .+ ((tk - 1) / tn) .* (θn .- θ)
+        resid = Lc * maximum(abs, θn .- z)               # gradient mapping at z
+        if dot(z .- θn, θn .- θ) > 0                     # momentum overshoot: restart
+            z = θn
+            tk = 1.0
+        else
+            tn = (1 + sqrt(1 + 4tk^2)) / 2
+            z = θn .+ ((tk - 1) / tn) .* (θn .- θ)
+            tk = tn
+        end
         θ = θn
-        tk = tn
-        if step <= FISTA_TOL * (1 + maximum(abs, θ)) && it > 1
+        if resid <= FISTA_TOL * (1 + Ntot)
             B = mn_coef(θ, p, J, free)
             return θ, B, mn_loglik(B, Y, X),
-                   (converged=true, iterations=it, last_step=step, solver="FISTA (L1)")
+                   (converged=true, iterations=it, gradient_mapping=resid, solver="FISTA (L1)")
         end
     end
     throw(NonConvergence("L1-MN did not converge in $(FISTA_MAXIT) FISTA iterations"))
@@ -193,9 +224,7 @@ function _fit_julia(::Type{MN}, Y::Matrix{Float64}, X::Matrix{Float64}, ref::Int
         inf = no_inference(B)
         status = :penalised_no_inference
     end
-    prov = (backend=:julia, model="MN", package_version=string(pkgversion(@__MODULE__)),
-            julia_version=string(VERSION), reference=ref, penalty=λ, convergence=report,
-            caveats=(BH_CAVEAT,))
+    prov = provenance(:julia, "MN"; reference=ref, penalty=λ, convergence=report)
     return CompositionalFit(MN, B, inf.se, inf.clr, inf.clr_se, inf.clr_p, inf.clr_q,
                             tested, ll + c, ref, status, NamedTuple(), prov)
 end

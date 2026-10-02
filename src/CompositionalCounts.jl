@@ -22,6 +22,7 @@ include("Identify.jl")
 include("LogSumExp.jl")
 include("Model.jl")
 include("Inference.jl")
+include("Provenance.jl")
 include("Backends/JuliaMN.jl")
 
 end # module

@@ -11,7 +11,8 @@ module CompositionalCountsRCallExt
 
 using CompositionalCounts
 using CompositionalCounts: MN, DM, CompositionalFit, BackendUnavailable, NonConvergence,
-      inference, constant_columns, mn_derivs, mn_embedding, multinomial_constant, BH_CAVEAT
+      inference, constant_columns, mn_derivs, mn_embedding, multinomial_constant,
+      check_divergence, provenance
 using RCall
 
 """
@@ -62,17 +63,17 @@ function CompositionalCounts._fit_r(::Type{MN}, Y::Matrix{Float64}, X::Matrix{Fl
         "MGLM MN hit its iteration cap ($iter); not reporting its estimate"))
     B = zeros(p, J)
     B[:, free] .= coef
+    check_divergence(B, Y, X)
     _, _, Imat = mn_derivs(B, Y, X, free)
     tested = collect(.!constant_columns(X))
     inf = inference(B, mn_embedding(p, J, free), Imat, tested; free_cols=free)
     se_full = Matrix{Union{Missing,Float64}}(missing, p, J)
     se_full[:, free] .= se
-    prov = (backend=:r, model="MN", package_version=string(pkgversion(CompositionalCounts)),
-            julia_version=string(VERSION), mglm_version=ver,
-            r_version=rcopy(String, R"R.version.string"), reference=ref, penalty=0.0,
-            convergence=(converged=true, iterations=iter, max_abs_gradient=maxgrad,
-                         solver="MGLM::MGLMreg.fit"),
-            caveats=(BH_CAVEAT, "CLR SEs use the package's information at MGLM's estimate"))
+    prov = provenance(:r, "MN"; reference=ref, penalty=0.0,
+                      versions=(mglm_version=ver, r_version=rcopy(String, R"R.version.string")),
+                      convergence=(converged=true, iterations=iter, max_abs_gradient=maxgrad,
+                                   solver="MGLM::MGLMreg.fit"),
+                      caveats=("CLR SEs use the package's information at MGLM's estimate",))
     return CompositionalFit(MN, B, se_full, inf.clr, inf.clr_se, inf.clr_p, inf.clr_q,
                             tested, logL, ref, :inference, NamedTuple(), prov)
 end

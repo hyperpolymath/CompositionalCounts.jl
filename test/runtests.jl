@@ -4,6 +4,7 @@
 using CompositionalCounts
 using Test
 
+
 @testset "CompositionalCounts" begin
     @testset "validate_counts" begin
         Y = [3 0 5; 1 2 0; 0 4 4]
@@ -40,3 +41,5 @@ using Test
         @test_throws InvalidReference select_reference([1 0 0; 0 1 0; 0 0 1])   # every prevalence 1/3
     end
 end
+
+include("mn_tests.jl")
