@@ -12,7 +12,9 @@ module CompositionalCountsRCallExt
 using CompositionalCounts
 using CompositionalCounts: MN, DM, CompositionalFit, BackendUnavailable, NonConvergence,
       inference, constant_columns, mn_derivs, mn_embedding, multinomial_constant,
-      check_divergence, provenance
+      check_divergence, provenance, common_scale_direction, dm_identifiable,
+      dm_check_estimate, dm_extra
+using LinearAlgebra: I as Id
 using RCall
 
 """
@@ -76,6 +78,36 @@ function CompositionalCounts._fit_r(::Type{MN}, Y::Matrix{Float64}, X::Matrix{Fl
                       caveats=("CLR SEs use the package's information at MGLM's estimate",))
     return CompositionalFit(MN, B, se_full, inf.clr, inf.clr_se, inf.clr_p, inf.clr_q,
                             tested, logL, ref, :inference, NamedTuple(), prov)
+end
+
+"""
+    _fit_r(::Type{DM}, Y, X, ref) -> CompositionalFit
+
+DM via MGLM (same α = exp(XB) parameterisation, all J columns free, no
+permutation). Coefficients, SEs and log-likelihood are MGLM's; the same
+identifiability, divergence and boundary refusals as the Julia backend are applied
+at MGLM's estimate, whose observed information gives the CLR effects and contrasts.
+`ref` only selects the contrast baseline.
+"""
+function CompositionalCounts._fit_r(::Type{DM}, Y::Matrix{Float64}, X::Matrix{Float64}, ref::Int)
+    ver = mglm_version()
+    p, J = size(X, 2), size(Y, 2)
+    w = common_scale_direction(X)
+    dm_identifiable(Y, X)
+    B, se, logL, iter, maxgrad = mglm_fit(Y, X, "DM")
+    iter >= MGLM_MAXITERS && throw(NonConvergence(
+        "MGLM DM hit its iteration cap ($iter); not reporting its estimate"))
+    _, Imat, _, Aplus = dm_check_estimate(B, Y, X, w)
+    tested = collect(.!constant_columns(X))
+    inf = inference(B, Matrix{Float64}(Id(p * J)), Imat, tested; free_cols=1:J)
+    prov = provenance(:r, "DM"; reference=ref, penalty=0.0,
+                      versions=(mglm_version=ver, r_version=rcopy(String, R"R.version.string")),
+                      convergence=(converged=true, iterations=iter, max_abs_gradient=maxgrad,
+                                   solver="MGLM::MGLMreg.fit"),
+                      caveats=("CLR SEs and contrasts use the package's information at MGLM's estimate",))
+    return CompositionalFit(DM, B, Matrix{Union{Missing,Float64}}(se), inf.clr, inf.clr_se,
+                            inf.clr_p, inf.clr_q, tested, logL, ref, :inference,
+                            dm_extra(B, Aplus, inf.cov, ref), prov)
 end
 
 end # module

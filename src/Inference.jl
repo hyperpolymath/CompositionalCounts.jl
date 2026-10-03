@@ -41,7 +41,8 @@ centring_matrix(J::Integer) = Matrix{Float64}(Id, J, J) .- 1.0 / J
 """
     inference(B, M, info, tested; free_cols) -> NamedTuple
 
-Standard errors, CLR effects, Wald p and BH q from coefficients `B` (p × J), the
+Standard errors, CLR effects, Wald p and BH q (and `cov`, the covariance of vec(B))
+from coefficients `B` (p × J), the
 linear map `M` with vec(B) = M θ, the observed information `info` for θ, and the
 `tested` covariate mask. Columns not in `free_cols` get `missing` SEs. Throws
 [`SingularInformation`](@ref) when `info` is not positive definite.
@@ -73,7 +74,7 @@ function inference(B::Matrix{Float64}, M::AbstractMatrix, info::AbstractMatrix,
         clr_p[r, :] .= pr
         clr_q[r, :] .= bh_adjust(pr)
     end
-    return (se=se, clr=Γ, clr_se=clr_se, clr_p=clr_p, clr_q=clr_q)
+    return (se=se, clr=Γ, clr_se=clr_se, clr_p=clr_p, clr_q=clr_q, cov=covB)
 end
 
 """
