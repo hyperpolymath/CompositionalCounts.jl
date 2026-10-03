@@ -24,5 +24,6 @@ include("Model.jl")
 include("Inference.jl")
 include("Provenance.jl")
 include("Backends/JuliaMN.jl")
+include("Backends/JuliaDM.jl")
 
 end # module

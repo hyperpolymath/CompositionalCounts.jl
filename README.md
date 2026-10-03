@@ -4,9 +4,18 @@
 Multinomial (MN) and Dirichlet-Multinomial (DM) regression for compositional
 count data such as microbiome taxon tables.
 
-**Status: 0.1.0-DEV — not yet usable.** Input validation and the reference-taxon rule are
-implemented and tested; the model fits are not. Each model's supported and
-unsupported conditions are published *before* implementation:
+**Status: 0.1.0-DEV.** What exists today:
+
+| Component | State |
+|---|---|
+| Input validation, reference-taxon rule | implemented, tested |
+| MN fit (Julia Newton; L1 via FISTA, no inference) | implemented, tested (gradient check, planted truth, refusals) |
+| MN via R `MGLM` 0.2.3 (RCall extension) | implemented; CI job agrees with the Julia fit to 1e-3 |
+| DM fit | planned |
+| Agda proofs of the algebraic claims | planned |
+
+Each model's supported and unsupported conditions are published *before*
+implementation:
 
 - [`docs/method-conditions/multinomial.md`](docs/method-conditions/multinomial.md)
 - [`docs/method-conditions/dirichlet-multinomial.md`](docs/method-conditions/dirichlet-multinomial.md)
@@ -21,8 +30,9 @@ unsupported conditions are published *before* implementation:
   and no empty result standing in for a negative one.
 - **Proved vs tested, stated per claim.** Algebraic properties (reference-change
   invariance, centred effects summing to zero, softmax shift invariance,
-  Benjamini–Hochberg) are machine-checked in Agda; numerical behaviour is tested
-  against `MGLM` and planted-truth simulations. See the method-conditions docs.
+  Benjamini–Hochberg) are to be machine-checked in Agda (planned, not yet in
+  this repository); numerical behaviour is tested against `MGLM` and
+  planted-truth simulations. See the method-conditions docs.
 
 ## Licence
 

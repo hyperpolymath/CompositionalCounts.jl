@@ -24,3 +24,17 @@ const X = rcopy(Matrix{Float64}, R"model.matrix(~ log(totalReads) + treatment, r
     @test maximum(abs, sum(f6.clr; dims=2)) <= 1e-12      # CLR sums to zero
     @test all(ismissing, f6.clr_q[1, :])                  # intercept not tested
 end
+
+@testset "DM: Julia vs MGLM 0.2.3 on rnaseq" begin
+    fj = fit(DM, Y, X; reference=4)
+    fr = fit(DM, Y, X; reference=4, backend=:r)
+    @test fr.provenance.mglm_version == "0.2.3"
+    @test maximum(abs, fj.coef .- fr.coef) <= 1e-3
+    @test maximum(abs, fj.se .- fr.se) <= 1e-3
+    @test abs(fj.loglik - fr.loglik) <= 1e-6 * abs(fr.loglik)
+    @test maximum(abs, fj.extra.alpha_plus .- fr.extra.alpha_plus) <= 1e-3 * maximum(fr.extra.alpha_plus)
+    @test fj.provenance.convergence.starts == 8
+    f1 = fit(DM, Y, X; reference=1)
+    @test maximum(abs, fj.clr .- f1.clr) <= 1e-8           # contrast baseline does not move CLR
+    @test maximum(abs, sum(fj.clr; dims=2)) <= 1e-10
+end
