@@ -46,6 +46,9 @@ jobs:
       - name: libR on the loader path for embedded R
         run: echo "LD_LIBRARY_PATH=$(R RHOME)/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
       - name: Julia MN vs MGLM
+        # Serial precompile on first `using`, so an extension failure prints its error.
+        env:
+          JULIA_PKG_PRECOMPILE_AUTO: 0
         run: |
           julia --project=test/r -e 'using Pkg; Pkg.instantiate()'
           julia --project=test/r test/r/runtests.jl
