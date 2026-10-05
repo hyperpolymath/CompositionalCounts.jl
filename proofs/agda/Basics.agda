@@ -67,6 +67,10 @@ data _∨_ (A B : Set) : Set where
 [ f , g ] (inl a) = f a
 [ f , g ] (inr b) = g b
 
+infixr 0 _↔_
+data _↔_ (A B : Set) : Set where
+  ⟨_,_⟩ : (A → B) → (B → A) → A ↔ B
+
 data Dec (P : Set) : Set where
   yes : P → Dec P
   no  : ¬ P → Dec P

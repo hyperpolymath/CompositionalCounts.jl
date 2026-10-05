@@ -50,7 +50,7 @@ Counts : ℕ → ℕ → Set
 Counts J n = Vec (Vec ℕ n) J
 
 col : (J n : ℕ) → (C : Counts J n) → (j : Fin J) → Vec ℕ n
-col J n C j = vlookup J n C j
+col J n C j = vlookup (Vec ℕ n) J C j
 
 -- Σ over a vector of naturals.
 vsum-ℕ : (n : ℕ) → Vec ℕ n → ℕ
@@ -82,8 +82,8 @@ ref-ok-decidable : (J n : ℕ) → (C : Counts J n) → (j : Fin J) →
 ref-ok-decidable J n C j with natLeq? n (2 * posCount n (col J n C j))
 ref-ok-decidable J n C j | yes hp with natLt? zero (total n (col J n C j))
 ref-ok-decidable J n C j | yes hp | yes ht = yes (pair hp ht)
-ref-ok-decidable J n C j | yes hp | no ¬ht = no (λ (pair a b) → ¬ht b)
-ref-ok-decidable J n C j | no ¬hp = no (λ (pair a b) → ¬hp a)
+ref-ok-decidable J n C j | yes hp | no ¬ht = no (λ q → ¬ht (proj₂ q))
+ref-ok-decidable J n C j | no ¬hp = no (λ q → ¬hp (proj₁ q))
 
 ------------------------------------------------------------------------
 -- Decidability of negation, and of the existence of a reference.
@@ -93,56 +93,51 @@ dec-not P (yes p) = no (λ ¬p → ¬p p)
 dec-not P (no ¬p) = yes (λ q → ¬p q)
 
 -- The tail of the counts table.
-tail : (n : ℕ) → Counts (suc J) n → Counts J n
-tail n C = snd C
+tail : (J n : ℕ) → Counts (suc J) n → Counts J n
+tail J n C = snd C
+
+-- No column of an empty table satisfies the rule.
+no-exists-zero : (n : ℕ) → (C : Counts zero n) →
+  ¬ (Σ (Fin zero) (λ j → ref-ok zero n C j))
+no-exists-zero n C (j₀ , q₀) with j₀
+no-exists-zero n C (j₀ , q₀) | (zero , e) with e
+no-exists-zero n C (j₀ , q₀) | (zero , e) | ()
+no-exists-zero n C (j₀ , q₀) | (suc k₁ , e) with e
+no-exists-zero n C (j₀ , q₀) | (suc k₁ , e) | ()
+
+-- Neither the head nor any tail column offers a reference.
+no-both : (J n : ℕ) → (C : Counts (suc J) n) →
+  (¬q : ¬ ref-ok (suc J) n C (fzero J)) →
+  (¬tail : ¬ (Σ (Fin J) (λ j → ref-ok J n (tail J n C) j))) →
+  ¬ (Σ (Fin (suc J)) (λ j → ref-ok (suc J) n C j))
+no-both J n C ¬q ¬tail (j₀ , q₀) with j₀
+no-both J n C ¬q ¬tail (j₀ , q₀) | (zero , e₀) = ¬q q₀
+no-both J n C ¬q ¬tail (j₀ , q₀) | (suc k₁ , e₀) = ¬tail ((k₁ , e₀) , q₀)
 
 dec-exists : (J n : ℕ) → (C : Counts J n) →
   Dec (Σ (Fin J) (λ j → ref-ok J n C j))
-dec-exists zero n C = no no-exists-zero
+dec-exists zero n C = no (no-exists-zero n C)
 dec-exists (suc J) n C with ref-ok-decidable (suc J) n C (fzero J)
 dec-exists (suc J) n C | yes q = yes (fzero J , q)
-dec-exists (suc J) n C | no ¬q with dec-exists J n (tail n C)
+dec-exists (suc J) n C | no ¬q with dec-exists J n (tail J n C)
 dec-exists (suc J) n C | no ¬q | yes (k , q′) = yes (fsuc J k , q′)
-dec-exists (suc J) n C | no ¬q | no ¬tail = no (no-both ¬q ¬tail)
-  where
-    no-exists-zero : ¬ (Σ (Fin zero) (λ j → ref-ok zero n C j))
-    no-exists-zero (j₀ , q₀) with j₀
-    no-exists-zero (j₀ , q₀) | (zero , e) with e
-    no-exists-zero (j₀ , q₀) | (zero , e) | ()
-    no-exists-zero (j₀ , q₀) | (fsuc zero (k₁ , e)) with e
-    no-exists-zero (j₀ , q₀) | (fsuc zero (k₁ , e)) | ()
-    no-both : (¬q : ¬ ref-ok (suc J) n C (fzero J)) →
-      (¬tail : ¬ (Σ (Fin J) (λ j → ref-ok J n (tail n C) j))) →
-      ¬ (Σ (Fin (suc J)) (λ j → ref-ok (suc J) n C j))
-    no-both ¬q ¬tail (j₀ , q₀) with j₀
-    no-both ¬q ¬tail (j₀ , q₀) | (zero , e₀) with e₀
-    no-both ¬q ¬tail (j₀ , q₀) | (zero , e₀) | ()
-    no-both ¬q ¬tail (j₀ , q₀) | (fsuc J (k , e₀)) = ¬tail (k , e₀) q₀
+dec-exists (suc J) n C | no ¬q | no ¬tail =
+  no (no-both J n C ¬q ¬tail)
 
 -- The refusal condition: no taxon satisfies the reference rule.
 refuse : (J n : ℕ) → (C : Counts J n) → Set
 refuse J n C = ¬ (Σ (Fin J) (λ j → ref-ok J n C j))
 
 refuse-decidable : (J n : ℕ) → (C : Counts J n) → Dec (refuse J n C)
-refuse-decidable J n C = dec-not (refuse J n C) (dec-exists J n C)
+refuse-decidable J n C =
+  dec-not (Σ (Fin J) (λ j → ref-ok J n C j)) (dec-exists J n C)
 
--- The lowest index at which the rule holds.
-first-ok : (J n : ℕ) → (C : Counts J n) →
-  (h : Σ (Fin J) (λ j → ref-ok J n C j)) → Fin J
-first-ok zero n C h with h
-first-ok zero n C (j₀ , q₀) with j₀
-first-ok zero n C (j₀ , q₀) | (zero , e) with e
-first-ok zero n C (j₀ , q₀) | (zero , e) | ()
-first-ok zero n C (j₀ , q₀) | (suc k₁ , e) with e
-first-ok zero n C (j₀ , q₀) | (suc k₁ , e) | ()
-first-ok (suc J) n C (j₀ , q₀) with ref-ok-decidable (suc J) n C (fzero J)
-first-ok (suc J) n C (j₀ , q₀) | yes _ = fzero J
-first-ok (suc J) n C (j₀ , q₀) | no ¬q with j₀
-first-ok (suc J) n C (j₀ , q₀) | no ¬q | (zero , e₀) with e₀
-first-ok (suc J) n C (j₀ , q₀) | no ¬q | (zero , e₀) | ()
-first-ok (suc J) n C (j₀ , q₀) | no ¬q | (suc k₁ , e₀) =
-  fsuc J (k₁ , e₁)
+-- The fit refuses exactly when the rule fails for every taxon.
+refuse-iff : (J n : ℕ) → (C : Counts J n) →
+  refuse J n C ↔ (∀ (j : Fin J) → ¬ ref-ok J n C j)
+refuse-iff J n C = ⟨ refuse-iff-fwd , refuse-iff-bwd ⟩
   where
-    -- suc k₁ <?> suc J  ≡  k₁ <?> J
-    e₁ : k₁ <?> J ≡ true
-    e₁ = trans (sym (<?>-suc-suc k₁ J)) e₀
+    refuse-iff-fwd : refuse J n C → (∀ (j : Fin J) → ¬ ref-ok J n C j)
+    refuse-iff-fwd ¬h j q = ¬h (j , q)
+    refuse-iff-bwd : (∀ (j : Fin J) → ¬ ref-ok J n C j) → refuse J n C
+    refuse-iff-bwd ¬col (j , q) = ¬col j q
