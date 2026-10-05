@@ -1,3 +1,6 @@
 /Manifest.toml
 /test/Manifest.toml
 /docs/build/
+
+# Agda interface files (build artifacts)
+*.agdai
