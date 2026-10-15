@@ -38,3 +38,17 @@ implementation:
 
 Code: MPL-2.0 (`LICENSE`). Documentation: CC-BY-SA-4.0. Each file carries its
 SPDX identifier.
+
+## Applications in practice
+
+The target use is differential-abundance modelling of count compositions
+where per-taxon negative-binomial fits are unstable: low-count taxa, small
+studies, and designs where the counts are a composition by construction.
+Proposed to MetaManifold as
+[issue #22](https://github.com/JoshuaJewell/MetaManifold-WebUI/issues/22):
+multinomial and Dirichlet-multinomial regression need no pseudocount (the
+composition is the model), and the centred effects sum to zero across taxa,
+so a "significant" taxon cannot be an artefact of how zeros were filled in.
+The practical value for a working analyst: the question a reviewer asks --
+"did the low-count taxa drive that call?" -- has a modelling answer rather
+than a filtering heuristic.
