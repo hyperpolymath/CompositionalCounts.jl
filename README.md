@@ -46,9 +46,14 @@ where per-taxon negative-binomial fits are unstable: low-count taxa, small
 studies, and designs where the counts are a composition by construction.
 Proposed to MetaManifold as
 [issue #22](https://github.com/JoshuaJewell/MetaManifold-WebUI/issues/22):
-multinomial and Dirichlet-multinomial regression need no pseudocount (the
-composition is the model), and the centred effects sum to zero across taxa,
-so a "significant" taxon cannot be an artefact of how zeros were filled in.
+multinomial and Dirichlet-multinomial regression neither require nor add a
+pseudocount (the composition is the model), and the centred effects sum to
+zero across taxa. What that buys is the model's own arithmetic: no zeros
+are filled in on the way to the fit. It is not a claim about the input --
+`fit` takes the caller's counts as given (finite, non-negative integers,
+each sample non-empty), so a table that was zero-filled upstream is modelled
+as the counts it now is. The guarantee is about what the model does not do,
+not about what a caller cannot have done beforehand.
 The practical value for a working analyst: the question a reviewer asks --
 "did the low-count taxa drive that call?" -- has a modelling answer rather
 than a filtering heuristic.
