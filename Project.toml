@@ -1,5 +1,6 @@
+# SPDX-License-Identifier: MPL-2.0
 name = "CompositionalCounts"
-uuid = "d0e53907-0033-4a7a-a8ae-f68b5fb6389e"
+uuid = "f9ec28cb-d4a9-8664-94f6-d764303df7d4"
 authors = ["Jonathan D.A. Jewell <6759885+hyperpolymath@users.noreply.github.com>"]
 version = "0.1.0-DEV"
 
